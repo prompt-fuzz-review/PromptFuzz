@@ -1366,22 +1366,8 @@ fn collect_fuzzable_integer_args(
             continue;
         }
 
-        let constraints_of_arg = get_cur_constraints(constraints, call_name, arg_pos);
-        let mut constraint_of_arg = None;
-
-        if constraints_of_arg.len() > 0 {
-            constraint_of_arg = Some(constraints_of_arg.get(0).unwrap().clone());
-            if constraints_of_arg.len() > 1 {
-                // TODO: Handle this case.
-                log::warn!(
-                    "Multiple constraints for the argument of the call: {} at position: {}",
-                    call_name,
-                    arg_pos
-                );
-            }
-        }
-        
-        let variant = FuzzVariant::new(call_name.to_string(), call.clone(), n_call, *arg_pos, constraint_of_arg);
+        let constraint = get_integer_arg_constraint(constraints, call_name, arg_pos);
+        let variant = FuzzVariant::new(call_name.to_string(), call.clone(), n_call, *arg_pos, constraint);
         fuzz_args.push(variant);
     }
     fuzz_args
@@ -1481,6 +1467,41 @@ fn get_array_arg_constraint(
     None
 }
 
+fn get_integer_arg_constraint(
+    constraints: &APIConstraints,
+    call_name: &str,
+    arg_pos: &usize,
+) -> Option<Constraint> {
+    let mut constraint_list_of_arg = Vec::new();
+    let mut constraint_of_arg = None;
+
+    if let Some(func_constraints) = constraints.get(call_name) {
+        for constraint in func_constraints {
+            if constraint.get_array_arg() == *arg_pos {
+                constraint_list_of_arg.push(constraint.clone());
+                continue;
+            }
+            if constraint.get_integer_arg() == *arg_pos {
+                constraint_list_of_arg.push(constraint.clone());
+                continue;
+            }
+        }
+    }
+
+    if constraint_list_of_arg.len() > 0 {
+        constraint_of_arg = Some(constraint_list_of_arg.get(0).unwrap().clone());
+        if constraint_list_of_arg.len() > 1 {
+            // TODO: Handle this case.
+            log::warn!(
+                "Multiple constraints for the argument of the call: {} at position: {}",
+                call_name,
+                arg_pos
+            );
+        }
+    }
+    constraint_of_arg
+}
+
 // those args are constrained, we don't rand mutate those args.
 fn filter_constrained_integer_args(
     constraints: &APIConstraints,
@@ -1532,29 +1553,6 @@ fn filter_constrained_integer_args(
         }
     }
     false
-}
-
-
-// those args are constrained, we don't rand mutate those args.
-fn get_cur_constraints(
-    constraints: &APIConstraints,
-    call_name: &str,
-    x: &usize,
-) -> Vec<Constraint> {
-    let mut cur_constraints = Vec::new();
-    if let Some(func_constraints) = constraints.get(call_name) {
-        for constraint in func_constraints {
-            if constraint.get_array_arg() == *x {
-                cur_constraints.push(constraint.clone());
-                continue;
-            }
-            if constraint.get_integer_arg() == *x {
-                cur_constraints.push(constraint.clone());
-                continue;
-            }
-        }
-    }
-    cur_constraints
 }
 
 pub mod utils {
