@@ -144,6 +144,10 @@ impl<'a> Transformer<'a> {
         let mut executor = Executor::new(self.deopt)?;
         for nth in 0..transform_len {
             let mut transformer = Self::new(&self.src_file, self.deopt)?.without_self_change();
+            if transformer.check_must_transformed_arg(constraints, nth)? {
+                changable_args.push(nth);
+                continue;
+            }
             transformer.transform_to_fuzzer(constraints, vec![nth])?;
             let out_driver = transformer.get_output_file();
             if let Some(err) = executor.transform_check(out_driver, corpora)? {
@@ -164,6 +168,31 @@ impl<'a> Transformer<'a> {
         let visitor = self.get_new_visitor()?;
         let fuzz_variants = visitor.collect_fuzzable_variants(&visitor, constraints);
         Ok(fuzz_variants.len())
+    }
+
+    pub fn check_must_transformed_arg(&mut self, constraints: &APIConstraints, nth: usize) -> Result<bool> {
+        let mut cur_nth = 0;
+
+        let visitor = self.get_new_visitor()?;
+        let fuzz_variants = visitor.collect_fuzzable_variants(&visitor, constraints);
+        for fuzz_variant in &fuzz_variants {
+            // only transform the specificed arguments
+            if nth != cur_nth {
+                cur_nth += 1;
+                continue;
+            }
+            if let Some(constraint) = fuzz_variant.get_constraint() {
+                match constraint {
+                    Constraint::MustTransform(_) => return Ok(true),
+                    _ => {
+                        cur_nth += 1;
+                        continue;
+                    }
+                }
+            }
+            cur_nth += 1;
+        }
+        Ok(false)
     }
 
     pub fn preprocess(&mut self) -> Result<()> {
@@ -1336,8 +1365,23 @@ fn collect_fuzzable_integer_args(
         if is_ret_by_call(call_name, *arg_pos, visitor) || !is_arg_fuzzable(arg, visitor) {
             continue;
         }
-        // read from file, needn't transform
-        let variant = FuzzVariant::new(call_name.to_string(), call.clone(), n_call, *arg_pos, None);
+
+        let constraints_of_arg = get_cur_constraints(constraints, call_name, arg_pos);
+        let mut constraint_of_arg = None;
+
+        if constraints_of_arg.len() > 0 {
+            constraint_of_arg = Some(constraints_of_arg.get(0).unwrap().clone());
+            if constraints_of_arg.len() > 1 {
+                // TODO: Handle this case.
+                log::warn!(
+                    "Multiple constraints for the argument of the call: {} at position: {}",
+                    call_name,
+                    arg_pos
+                );
+            }
+        }
+        
+        let variant = FuzzVariant::new(call_name.to_string(), call.clone(), n_call, *arg_pos, constraint_of_arg);
         fuzz_args.push(variant);
     }
     fuzz_args
@@ -1481,10 +1525,36 @@ fn filter_constrained_integer_args(
                         return true;
                     }
                 }
+                crate::program::infer::Constraint::MustTransform(_) => {
+                    continue;
+                }
             }
         }
     }
     false
+}
+
+
+// those args are constrained, we don't rand mutate those args.
+fn get_cur_constraints(
+    constraints: &APIConstraints,
+    call_name: &str,
+    x: &usize,
+) -> Vec<Constraint> {
+    let mut cur_constraints = Vec::new();
+    if let Some(func_constraints) = constraints.get(call_name) {
+        for constraint in func_constraints {
+            if constraint.get_array_arg() == *x {
+                cur_constraints.push(constraint.clone());
+                continue;
+            }
+            if constraint.get_integer_arg() == *x {
+                cur_constraints.push(constraint.clone());
+                continue;
+            }
+        }
+    }
+    cur_constraints
 }
 
 pub mod utils {
