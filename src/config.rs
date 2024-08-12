@@ -15,12 +15,12 @@ pub const CONNECT_TIMEOUT: u64 = 1;
 // OpenAI codex configure options
 pub const CODEX_MODEL: &str = "code-davinci-002";
 
-pub const CHATGPT_MODEL: &str = "gpt-3.5-turbo-0613";
+pub const CHATGPT_MODEL: &str = "gpt-3.5-turbo-0125";
 pub const CHATGPT_INPUTR_PRICE: f32 = 0.0015_f32;
 pub const CHATGPT_OUTPUT_PRICE: f32 = 0.002_f32;
 pub const CHATGPT_CONTEXT_LIMIT: usize = 4097;
 
-pub const CHATGPT_MODEL_LONG: &str = "gpt-3.5-turbo-16k-0613";
+pub const CHATGPT_MODEL_LONG: &str = "gpt-3.5-turbo-16k-0125";
 pub const CHATGPT_LONG_INPUT_PRICE: f32 = 0.003_f32;
 pub const CHATGPT_LONG_OUTPUT_PRICE: f32 = 0.004_f32;
 
