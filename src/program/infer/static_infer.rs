@@ -450,6 +450,9 @@ fn check_func_arg_is_file_name(func: &str, arg_pos: usize, deopt: &Deopt) -> Res
     log::debug!("FileName, func: {func}, arg_pos: {arg_pos}, total_cnt: {total_cnt}, true_cnt: {true_cnt}");
     if true_cnt == total_cnt || (true_cnt as f32 / total_cnt as f32) >= 0.8 {
         return Ok(true)
+    } else if (true_cnt as f32 / total_cnt as f32) < 0.8 && ((true_cnt+1) as f32 / total_cnt as f32) > 0.8 {
+        log::debug!("FileName in relieve condition, func: {func}, arg_pos: {arg_pos}, total_cnt: {total_cnt}, true_cnt: {true_cnt}");
+        return Ok(true)
     }
     Ok(false)
 }
