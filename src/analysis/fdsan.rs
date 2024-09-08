@@ -316,8 +316,8 @@ impl Transformer<'_> {
         worklist.push(&visitor.ast);
 
         let mut file_vars = Vec::new();
-        let input_re = Regex::new(r"^input_file(\.\w+)?$")?;
-        let output_re = Regex::new(r"^output_file(\.\w+)?$")?;
+        let input_re = Regex::new(r"^input(_file)?(\.\w+)?$")?;
+        let output_re = Regex::new(r"^input(_file)?(\.\w+)?$")?;
 
         while !worklist.empty() {
             let curr = worklist.pop();
@@ -459,8 +459,8 @@ impl Transformer<'_> {
         let mut fds = Vec::new();
         let mut files = Vec::new();
         let mut strings = Vec::new();
-        let input_re = Regex::new(r"^input_file(\.\w+)?$")?;
-        let output_re = Regex::new(r"^output_file(\.\w+)?$")?;
+        let input_re = Regex::new(r"^input(_file)?(\.\w+)?$")?;
+        let output_re = Regex::new(r"^output(_file)?(\.\w+)?$$")?;
         let mut cur_comp_range: Option<(usize, usize)> = None;
         let mut comp_stmts: Vec<(&ast::Node, Option<(usize, usize)>)> = vec![];
 
