@@ -27,6 +27,7 @@ pub enum Constraint {
     AllocSize(usize),
     FileDesc(usize),
     LoopCount(usize),
+    MustTransform(usize),
 }
 
 impl Constraint {
@@ -41,6 +42,7 @@ impl Constraint {
             Constraint::Format(pos) => *pos,
             Constraint::Invalid(tuple) => tuple.0,
             Constraint::LoopCount(pos) => *pos,
+            Constraint::MustTransform(pos) => *pos,
         }
     }
 
@@ -55,6 +57,7 @@ impl Constraint {
             Constraint::Format(pos) => *pos,
             Constraint::Invalid(tuple) => tuple.1,
             Constraint::LoopCount(pos) => *pos,
+            Constraint::MustTransform(pos) => *pos,
         }
     }
 
@@ -69,6 +72,7 @@ impl Constraint {
             Constraint::Format(_) => None,
             Constraint::AllocSize(_) => None,
             Constraint::LoopCount(_) => None,
+            Constraint::MustTransform(_) => None,
         }
     }
 }
@@ -97,6 +101,7 @@ pub fn get_array_constraint<'a>(
 
 pub fn infer_constraints(programs: &Vec<PathBuf>, deopt: &Deopt) -> Result<APIConstraints> {
     let mut constraints: HashMap<String, Vec<Constraint>> = HashMap::new();
+    static_infer::infer_contraints_with_signiture(&mut constraints);
     for program in programs {
         static_infer::infer_constraints(program, deopt, &mut constraints)?;
     }
