@@ -5,7 +5,7 @@ use crate::{
     ast::{loc::is_macro_stmt, Clang, CommomHelper, Node, Visitor},
     config::get_config,
     execution::Executor,
-    program::gadget::get_func_gadget, config::get_config,
+    program::gadget::get_func_gadget,
     program::gadget::get_func_gadgets,
 };
 
