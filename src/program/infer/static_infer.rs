@@ -5,7 +5,8 @@ use crate::{
     ast::{loc::is_macro_stmt, Clang, CommomHelper, Node, Visitor},
     config::get_config,
     execution::Executor,
-    program::gadget::get_func_gadget,
+    program::gadget::get_func_gadget, config::get_config,
+    program::gadget::get_func_gadgets,
 };
 
 use self::utils::is_null_ptr;
@@ -26,6 +27,32 @@ pub fn add_function_constraint(
         let func_constraints = vec![constraint];
         constraints.insert(func.to_string(), func_constraints);
     }
+}
+
+pub fn infer_contraints_with_signiture(
+    constraints: &mut HashMap<String, Vec<Constraint>>,
+) {
+    for gadget in get_func_gadgets() {
+        let func_name = gadget.get_func_name();
+        let arg_idents = gadget.get_arg_idents();
+        for (pos, arg_ident) in arg_idents.iter().enumerate() {
+            if is_must_trasformed_arg(arg_ident) {
+                log::debug!("is_must_transform(func_name: {:?}, arg_name: {:?})", func_name, arg_ident);
+                let constraint = Constraint::MustTransform(pos);
+                add_function_constraint(&func_name, constraint, constraints);
+            }
+        }
+    }
+}
+
+pub fn is_must_trasformed_arg(arg_ident: &str) -> bool {
+    let must_transform = ["flag", "mode", "Flag"];
+    for mt in must_transform {
+        if arg_ident.contains(mt) {
+            return true;
+        }
+    }
+    false
 }
 
 pub fn infer_constraints(
@@ -202,6 +229,7 @@ fn refine_constraints_for_array_arg(constraints: Vec<Constraint>) -> Vec<Constra
             Constraint::FileDesc(_) => file_desc.push(constraint),
             Constraint::Format(_) => format.push(constraint),
             Constraint::Invalid(_) => return Vec::new(),
+            Constraint::MustTransform(_) => return vec![constraint],
         }
     }
     // if different constraint inferred on the same arg
@@ -265,6 +293,7 @@ fn refine_constraints_for_integer_arg(constraints: Vec<Constraint>) -> Vec<Const
             Constraint::FileDesc(_) => file_desc.push(constraint),
             Constraint::Format(_) => return vec![constraint],
             Constraint::Invalid(_) => return Vec::new(),
+            Constraint::MustTransform(_) => return vec![constraint],
         }
     }
 
@@ -454,7 +483,11 @@ fn check_func_arg_is_file_name(func: &str, arg_pos: usize, deopt: &Deopt) -> Res
         "FileName, func: {func}, arg_pos: {arg_pos}, total_cnt: {total_cnt}, true_cnt: {true_cnt}"
     );
     if true_cnt == total_cnt || (true_cnt as f32 / total_cnt as f32) >= 0.8 {
-        return Ok(true);
+
+        return Ok(true)
+    } else if (true_cnt as f32 / total_cnt as f32) < 0.8 && ((true_cnt+1) as f32 / total_cnt as f32) > 0.8 {
+        log::debug!("FileName in relieve condition, func: {func}, arg_pos: {arg_pos}, total_cnt: {total_cnt}, true_cnt: {true_cnt}");
+        return Ok(true)
     }
     Ok(false)
 }
