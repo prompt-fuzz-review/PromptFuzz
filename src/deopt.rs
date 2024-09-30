@@ -1,6 +1,6 @@
 use crate::{
     analysis::header::get_include_lib_headers,
-    config::{self, LibConfig},
+    config::{self, LibConfig, get_library_name},
     deopt::utils::get_file_dirname,
     execution::{ast::remove_duplicate_definition, logger::ProgramError, Executor},
     feedback::{clang_coverage::CodeCoverage, observer::Observer},
@@ -284,6 +284,14 @@ impl Deopt {
 
     pub fn get_library_build_header_path(&self) -> Result<PathBuf> {
         let path: PathBuf = [self.get_library_build_dir()?, "include".into()]
+            .iter()
+            .collect();
+        Ok(path)
+    }
+
+    pub fn get_library_build_source_path(&self) -> Result<PathBuf> {
+        let lib_name = get_library_name(self)?;
+        let path: PathBuf = [self.get_library_build_dir()?,"src".into(),lib_name.into()]
             .iter()
             .collect();
         Ok(path)
