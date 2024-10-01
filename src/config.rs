@@ -312,7 +312,9 @@ pub const USER_GEN_TEMPLATE: &str =
 4. Once you need a `FILE *` variable to read the input data, using `FILE * in_file = fmemopen((void *)data, size, \"rb\")` to produce a `FILE *` variable.
    Once you need a `FILE *` variable to write output data, using `FILE * out_file = fopen(\"output_file\", \"wb\")` to produce a `FILE *` variable.
 5. Once you need a `int` type file descriptor, using `fileno(in_file)` or `fileno(out_file)` to produce a file descriptor for reading or writing. 
-6. Once you just need a string of file name, directly using \"input_file\" or \"output_file\" as the file name.
+6. *important* Once you need to treat the `file name parameter`, directly using \"input_file\" or \"output_file\" as the file name.
+  6-1. If the library API has a parameter whose type is `const char *`, `const char[]`, `char *` or `char[]` and name(ident) contains `file` or `path`, regard it as `file name parameter`.
+  6-2. If the library API has a function name which implies that the API is involved in file and a parameter whose type is `const char *`, `const char[]`, `char *` or `char[]`, regard it as `file name parameter` and name(ident) contains `file`, `name` or `path`.
 7. Release all allocated resources before return.
 ";
 

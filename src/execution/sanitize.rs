@@ -165,6 +165,8 @@ impl Executor {
             let mut content = String::new();
             content.push_str(crate::deopt::utils::format_library_header_strings(deopt));
             content.push_str(&program.serialize());
+            log::debug!("check program)");
+            log::debug!("{content}");
             std::fs::write(&temp_path, content)?;
             program_paths.push(temp_path);
         }
