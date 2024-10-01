@@ -470,6 +470,55 @@ pub mod utils {
         }
     }
 
+    // pub fn get_arg_value(arg: &Node) -> String {
+    //     match &arg.kind {
+    //         Clang::StringLiteral(sl) => sl.get_eval_value(),
+    //         Clang::IntegerLiteral(il) => il.get_eval_value(),
+    //         Clang::CharacterLiteral(cl) => cl.get_eval_value(),
+    //         Clang::InitListExpr(_) => String::from("[]"),
+    //         Clang::DeclRefExpr(dre) => {
+    //             let name = dre.get_name_as_string();
+    //             name
+    //         }
+    //         Clang::UnaryOperator(uo) => {
+    //             if uo.is_minus() {
+    //                 let inner = uo.get_inner(arg);
+    //                 return get_arg_value(inner);
+    //             }
+    //             if uo.is_addrof() {
+    //                 let inner = uo.get_inner(arg);
+    //                 return get_arg_value(inner);
+    //             }
+    //             unreachable!("{arg:#?}")
+    //         }
+    //         _ => unimplemented!("{arg:#?}"),
+    //     }
+    // }
+
+    pub fn get_arg_value(arg: &Node, visitor: &Visitor) -> String {
+        match &arg.kind {
+            Clang::StringLiteral(sl) => sl.get_eval_value(),
+            Clang::DeclRefExpr(dre) => {
+                if let Some(init) = dre.get_var_init(visitor) {
+                    return get_arg_value(init, visitor);
+                }
+                return String::from("");
+            },
+            Clang::UnaryOperator(uo) => {
+                if uo.is_minus() {
+                    let inner = uo.get_inner(arg);
+                    return get_arg_value(inner, visitor);
+                }
+                if uo.is_addrof() {
+                    let inner = uo.get_inner(arg);
+                    return get_arg_value(inner, visitor);
+                }
+                return String::from("");
+            },
+            _ => String::from("")
+        }
+    }
+
     fn is_pointer_ty(ty: &str) -> bool {
         ty.find('*').is_some() || ty.find('[').is_some()
     }

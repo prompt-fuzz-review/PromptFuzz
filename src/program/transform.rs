@@ -3,7 +3,7 @@
 use crate::{
     ast::{
         loc::is_macro_stmt,
-        utils::{get_nth_arg, is_arg_fuzzable},
+        utils::{get_nth_arg, is_arg_fuzzable, get_arg_value},
     },
     program::{
         array::InitListType,
@@ -28,6 +28,7 @@ use crate::{
 
 use eyre::{ContextCompat, Result};
 use regex::Regex;
+use std::collections::HashSet;
 
 use self::utils::{is_read_from_file, is_ret_by_call, replace_string_in_file};
 
@@ -128,7 +129,8 @@ impl<'a> Transformer<'a> {
 
         self.write_fuzzer_seeds()?;
         self.add_fd_sanitizer()?;
-        self.handle_file_constraint("data", "size")?;
+        // self.handle_file_constraint("data", "size")?;
+        self.handle_input_file_constraint(constraints, "data", "size")?;
         self.add_fuzzer_size_constraint("f_size")?;
 
         Ok(())
@@ -184,6 +186,40 @@ impl<'a> Transformer<'a> {
             };
             let init_stmt = format!("\n\tFILE *input_file_ptr = fopen(\"{file_name}\", \"wb\");\n\tif (input_file_ptr == NULL) {{return 0;}}\n\tfwrite({data}, sizeof(uint8_t), {size}, input_file_ptr);\n\tfclose(input_file_ptr);\n");
             self.seek_and_rewrite(ins_loc, 0, &init_stmt)?;
+        }
+        Ok(())
+    }
+
+    // write the raw bytes to the file except the "output_file";
+    fn handle_input_file_constraint(
+        &mut self,
+        constraints: &APIConstraints,
+        data: &str,
+        size: &str
+    ) -> Result<()> {
+        let visitor = self.get_new_visitor()?;
+        let file_names = visitor.collect_file_names(&visitor, constraints);
+        
+        let set: HashSet<_> = file_names.into_iter().collect();
+        let file_names: Vec<_> = set.into_iter().collect();
+
+        for (idx, file_name) in file_names.iter().enumerate() {
+            let output_file_re = Regex::new(&format!("^.*output.*$"))?;
+            if output_file_re.is_match(&file_name) {
+                continue;
+            }
+            let re = Regex::new(&format!("^{file_name}$"))?;
+            let visitor = self.get_new_visitor()?;
+            let file_idx = "input_file_".to_string() + &idx.to_string();
+            if let Some(file_name) = visitor.match_string_pattern(re) {
+                let ins_loc = if let Some(loc) = crate::ast::loc::get_fuzzer_shim_after_loc(&self.src_file)? {
+                    loc
+                } else {
+                    visitor.get_function_body_begin_loc()?
+                };
+                let init_stmt = format!("\n\tFILE *{file_idx}_ptr = fopen(\"{file_name}\", \"wb\");\n\tif ({file_idx}_ptr == NULL) {{return 0;}}\n\tfwrite({data}, sizeof(uint8_t), {size}, {file_idx}_ptr);\n\tfclose({file_idx}_ptr);\n");
+                self.seek_and_rewrite(ins_loc, 0, &init_stmt)?;
+            }
         }
         Ok(())
     }
@@ -1278,6 +1314,38 @@ impl FuzzVariant {
     }
 }
 
+fn collect_file_name_arg_values(
+    call_name: &str,
+    call: &Node,
+    constraints: &APIConstraints,
+    visitor: &Visitor,
+) -> Vec<String> {
+    let const_file_name_pos = super::gadget::get_fuzzable_funcs()
+        .get(call_name)
+        .unwrap()
+        .to_vec();
+    let const_file_name_pos: Vec<&usize> = const_file_name_pos
+        .iter()
+        .filter(|array_pos| filter_constrained_file_name_args(constraints, call_name, array_pos))
+        .collect();
+    let mut file_names = Vec::new();
+    for arg_pos in const_file_name_pos {
+        let arg = get_nth_arg(call, *arg_pos).unwrap();
+        if is_read_from_file(arg, visitor) || !is_arg_fuzzable(arg, visitor) {
+            continue;
+        }
+
+        let arg_value = get_arg_value(arg, visitor);
+        log::debug!("arg_value: {:?}", arg_value);
+
+        if !arg_value.is_empty() {
+            log::debug!("arg_value_added");
+            file_names.push(arg_value);
+        }
+    }
+    file_names
+}
+
 fn collect_fuzzable_array_args(
     call_name: &str,
     call: &Node,
@@ -1373,6 +1441,51 @@ impl Visitor {
         }
         fuzz_variants
     }
+
+    fn collect_file_names(
+        &self,
+        visitor: &Visitor,
+        constraints: &APIConstraints,
+    ) -> Vec<String> {
+        let mut file_names = Vec::new();
+        let calls = self.visit_library_calls();
+        for (_, call) in calls.iter().enumerate() {
+            // cannot locate code elements in macro expansion, skip it.
+            if let Clang::CallExpr(ce) = &call.kind {
+                if is_macro_stmt(&ce.range) {
+                    continue;
+                }
+            }
+
+            let call_name = call.get_call_name();
+            // get the positions of constant array parameters of this API call.
+            let file_name_arg_values = collect_file_name_arg_values(&call_name, call, constraints, visitor);
+            file_names.extend(file_name_arg_values);
+        }
+        file_names
+    }
+}
+
+fn filter_constrained_file_name_args(
+    constraints: &APIConstraints,
+    call_name: &str,
+    x: &usize,
+) -> bool {
+    if let Some(func_constraints) = constraints.get(call_name) {
+        for constraint in func_constraints {
+            if let crate::program::infer::Constraint::FileName(file_pos) = constraint {
+                if file_pos == x {
+                    return true;
+                }
+            }
+            if let crate::program::infer::Constraint::PrecedenceFileName(format_pos) = constraint {
+                if format_pos == x {
+                    return true;
+                }
+            }
+        }
+    }
+    false
 }
 
 /// those array args are not fuzzable arrays, they should not be transformed to receive fuzz bytes.
@@ -1381,6 +1494,11 @@ fn filter_constrained_array_args(constraints: &APIConstraints, call_name: &str, 
         for constraint in func_constraints {
             if let crate::program::infer::Constraint::FileName(file_pos) = constraint {
                 if file_pos == x {
+                    return true;
+                }
+            }
+            if let crate::program::infer::Constraint::PrecedenceFileName(format_pos) = constraint {
+                if format_pos == x {
                     return true;
                 }
             }
@@ -1472,6 +1590,7 @@ fn filter_constrained_integer_args(
                     }
                 }
                 crate::program::infer::Constraint::FileName(_)
+                | crate::program::infer::Constraint::PrecedenceFileName(_)
                 | crate::program::infer::Constraint::Format(_) => {
                     continue;
                 }
