@@ -290,7 +290,7 @@ impl Deopt {
     }
 
     pub fn get_library_build_source_path(&self) -> Result<PathBuf> {
-        let lib_name = get_library_name(self)?;
+        let lib_name = get_library_name();
         let path: PathBuf = [self.get_library_build_dir()?,"src".into(),lib_name.into()]
             .iter()
             .collect();
@@ -306,6 +306,22 @@ impl Deopt {
             headers.push(header_path);
         }
         Ok(headers)
+    }
+
+    pub fn obtain_library_source_files(&self) -> Result<Vec<PathBuf>> {
+        let source_dir = self.get_library_build_source_path()?;
+        let mut sources = Vec::new();
+        for entry in std::fs::read_dir(&source_dir)? {
+            let entry = entry?;
+            let path = entry.path();
+            if path.is_file() {
+                sources.push(path);
+            } else if path.is_dir() {
+                let mut sub_sources = utils::read_all_files_in_dir(&path)?;
+                sources.append(&mut sub_sources);
+            }
+        }
+        Ok(sources)
     }
 
     pub fn get_library_build_corpus_dir(&self) -> Result<PathBuf> {
