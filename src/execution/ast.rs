@@ -126,11 +126,6 @@ impl Executor {
     }
 
     pub fn extract_source_ast(source: &Path, deopt: &Deopt) -> Result<Node> {
-        if let Some(ext) = source.extension() {
-            if ext != "cc" && ext != "cpp" && ext != "c" {
-                eyre::bail!("source file should be .cc, .cpp or .c");
-            }
-        }
         let include_path =
             "-I".to_owned() + deopt.get_library_build_source_path()?.to_str().unwrap();
         let mut binding = Command::new("clang++");
