@@ -355,6 +355,8 @@ pub mod func_gadget {
 
     pub fn parse_func_gadgets(deopt: &Deopt) -> Result<Vec<FuncGadget>> {
         let headers = deopt.obtain_library_include_headers()?;
+        let sources = deopt.obtain_library_source_files()?;
+        
         let mut gadgets = Vec::new();
         for header in headers {
             if let Some(ext) = header.extension() {
@@ -372,6 +374,51 @@ pub mod func_gadget {
             let header_gadgets: Vec<FuncGadget> = parse_func_gadgets_from_ast(&ast, deopt)?;
             gadgets.extend(header_gadgets);
         }
+
+        // To check ast of source files, if header file does not contain arg idents, update it with source file.
+        for source in sources {
+            if source.extension().is_none() {
+                continue;
+            }
+            if let Some(ext) = source.extension() {
+                if ext != "c" && ext != "cpp" && ext != "cc" && ext != "cxx"  {
+                    continue;
+                }
+            }
+            let ast_res = Executor::parse_source_ast(&source, deopt);
+
+            if let Err(err) = ast_res {
+                log::error!("{}", err.to_string());
+                log::error!("Meet a error during parse source's ast. Some sources are prevent to be included. IF that is the case, please just ignore it.");
+                continue;
+            }
+            let ast = ast_res.unwrap();
+            let source_gadgets: Vec<FuncGadget> = parse_func_gadgets_from_ast(&ast, deopt)?;
+            for source_gadget in source_gadgets {
+                if source_gadget.arg_idents.len() == 0 || source_gadget.arg_idents[0] == "" || source_gadget.name == "main" {
+                    continue;
+                }
+                for gadget in &mut gadgets {
+                    if gadget.name == source_gadget.name 
+                        && gadget.arg_idents.len() == source_gadget.arg_idents.len() 
+                        && gadget.arg_idents[0] == "" {
+                            
+                        for (idx, typ) in source_gadget.arg_types.iter().enumerate() {
+                            if *typ != gadget.arg_idents[idx] {
+                                break;
+                            }
+                        }
+                        for (idx, alias_type) in source_gadget.alias_arg_types.iter().enumerate() {
+                            if *alias_type != gadget.arg_types[idx] {
+                                break;
+                            }
+                        }
+                        gadget.arg_idents = source_gadget.arg_idents.clone();
+                    }
+                }
+            }
+        }
+
         let mut visited: HashSet<String> = HashSet::new();
         gadgets.retain(|x| {
             if visited.contains(&x.name) {

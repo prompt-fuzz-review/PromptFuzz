@@ -91,6 +91,14 @@ impl Executor {
         Ok(ast)
     }
 
+    pub fn parse_source_ast(source: &Path, deopt: &Deopt) -> eyre::Result<Node> {
+        let mut ast = Executor::extract_source_ast(source, deopt)?;
+        let sources =
+            crate::deopt::utils::read_all_files_in_dir(&deopt.get_library_build_source_path()?)?;
+        let _ = eliminate_irrelative_ast(&mut ast, &sources);
+        Ok(ast)
+    }
+
     pub fn extract_header_ast(header: &Path, deopt: &Deopt) -> Result<Node> {
         let include_path =
             "-I".to_owned() + deopt.get_library_build_header_path()?.to_str().unwrap();
@@ -116,8 +124,27 @@ impl Executor {
             String::from_utf8_lossy(&output.stderr)
         );
     }
-}
 
+    pub fn extract_source_ast(source: &Path, deopt: &Deopt) -> Result<Node> {
+        let include_path =
+            "-I".to_owned() + deopt.get_library_build_source_path()?.to_str().unwrap();
+        let mut binding = Command::new("clang++");
+        let binding = binding
+            .arg("-fsyntax-only")
+            .arg("-Xclang")
+            .arg("-ast-dump=json")
+            .arg(include_path)
+            .arg(source);
+        let output = binding
+            .stdout(Stdio::piped())
+            .output()
+            .expect("failed to execute cmd.");
+        let json_output = output.stdout.as_slice();
+        let node: Node = serde_json::from_slice(json_output)
+            .with_context(|| eyre::eyre!("fail to extract ast from {source:?}"))?;
+        return Ok(node);
+    }
+}
 /// Filter the ast and only retain the node with function name as `func`.
 fn ast_dump_filter(data: &[u8], func: &str) -> Result<Node> {
     let it = data.iter();

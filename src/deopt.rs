@@ -1,6 +1,6 @@
 use crate::{
     analysis::header::get_include_lib_headers,
-    config::{self, LibConfig},
+    config::{self, LibConfig, get_library_name},
     deopt::utils::get_file_dirname,
     execution::{ast::remove_duplicate_definition, logger::ProgramError, Executor},
     feedback::{clang_coverage::CodeCoverage, observer::Observer},
@@ -289,6 +289,14 @@ impl Deopt {
         Ok(path)
     }
 
+    pub fn get_library_build_source_path(&self) -> Result<PathBuf> {
+        let lib_name = get_library_name();
+        let path: PathBuf = [self.get_library_build_dir()?,"src".into(),lib_name.into()]
+            .iter()
+            .collect();
+        Ok(path)
+    }
+
     pub fn obtain_library_include_headers(&self) -> Result<Vec<PathBuf>> {
         let header_names = get_include_lib_headers(self)?;
         let mut headers: Vec<PathBuf> = Vec::new();
@@ -298,6 +306,22 @@ impl Deopt {
             headers.push(header_path);
         }
         Ok(headers)
+    }
+
+    pub fn obtain_library_source_files(&self) -> Result<Vec<PathBuf>> {
+        let source_dir = self.get_library_build_source_path()?;
+        let mut sources = Vec::new();
+        for entry in std::fs::read_dir(&source_dir)? {
+            let entry = entry?;
+            let path = entry.path();
+            if path.is_file() {
+                sources.push(path);
+            } else if path.is_dir() {
+                let mut sub_sources = utils::read_all_files_in_dir(&path)?;
+                sources.append(&mut sub_sources);
+            }
+        }
+        Ok(sources)
     }
 
     pub fn get_library_build_corpus_dir(&self) -> Result<PathBuf> {
