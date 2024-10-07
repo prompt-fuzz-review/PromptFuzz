@@ -315,6 +315,7 @@ pub const USER_GEN_TEMPLATE: &str =
 6. *important* Once you need to treat the `file name parameter`, directly using \"input_file\" or \"output_file\" as the file name.
   6-1. If the library API has a parameter whose type is `const char *`, `const char[]`, `char *` or `char[]` and name(ident) contains `file` or `path`, regard it as `file name parameter`.
   6-2. If the library API has a function name which implies that the API is involved in file and a parameter whose type is `const char *`, `const char[]`, `char *` or `char[]`, regard it as `file name parameter` and name(ident) contains `file`, `name` or `path`.
+  6-3. If you should use file path as parameter, do not set it a file in another folder.
 7. Release all allocated resources before return.
 ";
 
