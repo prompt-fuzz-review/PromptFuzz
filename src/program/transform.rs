@@ -239,7 +239,7 @@ impl<'a> Transformer<'a> {
                 continue;
             }
 
-            let other_folder_file_re = Regex::new(&format!("^.*\/.*$"))?;
+            let other_folder_file_re = Regex::new(&format!("^.*/.*$"))?;
             if other_folder_file_re.is_match(&file_name) {
                 continue;
             }
