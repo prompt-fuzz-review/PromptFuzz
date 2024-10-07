@@ -208,6 +208,12 @@ impl<'a> Transformer<'a> {
             if output_file_re.is_match(&file_name) {
                 continue;
             }
+
+            let other_folder_file_re = Regex::new(&format!("^.*\/.*$"))?;
+            if other_folder_file_re.is_match(&file_name) {
+                continue;
+            }
+
             let re = Regex::new(&format!("^{file_name}$"))?;
             let visitor = self.get_new_visitor()?;
             let file_idx = "input_file_".to_string() + &idx.to_string();
