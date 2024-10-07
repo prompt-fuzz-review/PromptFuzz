@@ -22,6 +22,7 @@ pub enum Constraint {
     /// argtuple cannot be any constraint
     Format(usize),
     FileName(usize),
+    PrecedenceFileName(usize),
     Invalid(ArgTuple),
     // integer constraints
     AllocSize(usize),
@@ -38,6 +39,7 @@ impl Constraint {
             Constraint::WeakArrayLen(tuple) => tuple.0,
             Constraint::AllocSize(pos) => *pos,
             Constraint::FileName(pos) => *pos,
+            Constraint::PrecedenceFileName(pos) => *pos,
             Constraint::FileDesc(pos) => *pos,
             Constraint::Format(pos) => *pos,
             Constraint::Invalid(tuple) => tuple.0,
@@ -53,6 +55,7 @@ impl Constraint {
             Constraint::WeakArrayLen(tuple) => tuple.1,
             Constraint::AllocSize(pos) => *pos,
             Constraint::FileName(pos) => *pos,
+            Constraint::PrecedenceFileName(pos) => *pos,
             Constraint::FileDesc(pos) => *pos,
             Constraint::Format(pos) => *pos,
             Constraint::Invalid(tuple) => tuple.1,
@@ -68,6 +71,7 @@ impl Constraint {
             Constraint::Invalid(tuple) => Some(tuple),
             Constraint::WeakArrayLen(tuple) => Some(tuple),
             Constraint::FileName(_) => None,
+            Constraint::PrecedenceFileName(_) => None,
             Constraint::FileDesc(_) => None,
             Constraint::Format(_) => None,
             Constraint::AllocSize(_) => None,

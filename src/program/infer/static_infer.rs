@@ -5,7 +5,7 @@ use crate::{
     ast::{loc::is_macro_stmt, Clang, CommomHelper, Node, Visitor},
     config::get_config,
     execution::Executor,
-    program::gadget::get_func_gadget,
+    program::gadget::get_func_gadget, config::get_config,
     program::gadget::get_func_gadgets,
 };
 
@@ -35,10 +35,22 @@ pub fn infer_contraints_with_signiture(
     for gadget in get_func_gadgets() {
         let func_name = gadget.get_func_name();
         let arg_idents = gadget.get_arg_idents();
+        let arg_types = gadget.get_alias_arg_types();
+
         for (pos, arg_ident) in arg_idents.iter().enumerate() {
             if is_must_trasformed_arg(arg_ident) {
                 log::debug!("is_must_transform(func_name: {:?}, arg_name: {:?})", func_name, arg_ident);
                 let constraint = Constraint::MustTransform(pos);
+                add_function_constraint(&func_name, constraint, constraints);
+            }
+        }
+        
+        let is_file_related = is_file_related_function(&func_name);
+        for (pos, arg_ident) in arg_idents.iter().enumerate() {
+            let arg_type = arg_types[pos].clone();
+            if is_file_name_arg(&arg_type, arg_ident, is_file_related) {
+                log::debug!("is_precedence_file_name(func_name: {:?}, arg_name: {:?})", func_name, arg_ident);
+                let constraint = Constraint::PrecedenceFileName(pos);
                 add_function_constraint(&func_name, constraint, constraints);
             }
         }
@@ -49,6 +61,41 @@ pub fn is_must_trasformed_arg(arg_ident: &str) -> bool {
     let must_transform = ["flag", "mode", "Flag"];
     for mt in must_transform {
         if arg_ident.contains(mt) {
+            return true;
+        }
+    }
+    false
+}
+
+pub fn is_file_related_function(func_name: &str) -> bool {
+    let file_related = ["file", "path"];
+    let lower_func_name = func_name.to_lowercase();
+    for fr in file_related {
+        if lower_func_name.contains(fr) {
+            return true;
+        }
+    }
+    false
+}
+
+pub fn is_file_name_arg(arg_type: &str, arg_name: &str, is_file_related_function: bool) -> bool {
+    if !(arg_type == "char *" || arg_type == "const char *" || arg_type == "char[]" || arg_type == "const char[]") {
+        return false;
+    }
+    let lower_arg_name = arg_name.to_lowercase();
+    
+    let released_file_name_keywords = ["name"];
+    if is_file_related_function{
+        for file_name_keyword in released_file_name_keywords {
+            if lower_arg_name.contains(file_name_keyword) {
+                return true;
+            }
+        }
+    }
+    
+    let file_name_keywords = ["file", "path"];
+    for file_name_keyword in file_name_keywords {
+        if lower_arg_name.contains(file_name_keyword) {
             return true;
         }
     }
@@ -213,6 +260,7 @@ fn refine_constraints_for_array_arg(constraints: Vec<Constraint>) -> Vec<Constra
     let mut arr_len = Vec::new();
     let mut weak_arr_len = Vec::new();
     let mut file_name = Vec::new();
+    let mut precedence_file_name = Vec::new();
     let mut file_desc = Vec::new();
     let mut arr_index = Vec::new();
     let mut format = Vec::new();
@@ -226,12 +274,17 @@ fn refine_constraints_for_array_arg(constraints: Vec<Constraint>) -> Vec<Constra
             Constraint::AllocSize(_) => return vec![constraint],
             Constraint::LoopCount(_) => return vec![constraint],
             Constraint::FileName(_) => file_name.push(constraint),
+            Constraint::PrecedenceFileName(_) => precedence_file_name.push(constraint),
             Constraint::FileDesc(_) => file_desc.push(constraint),
             Constraint::Format(_) => format.push(constraint),
             Constraint::Invalid(_) => return Vec::new(),
             Constraint::MustTransform(_) => return vec![constraint],
         }
     }
+    if !(file_name.is_empty() && precedence_file_name.is_empty()) {
+        file_name = precedence_file_name.clone();
+    }
+
     // if different constraint inferred on the same arg
     if !(arr_len.is_empty() && file_name.is_empty() && format.is_empty()) {
         let max_num = usize::max(usize::max(arr_len.len(), file_name.len()), format.len());
@@ -290,6 +343,7 @@ fn refine_constraints_for_integer_arg(constraints: Vec<Constraint>) -> Vec<Const
             Constraint::AllocSize(_) => return vec![constraint],
             Constraint::LoopCount(_) => return vec![constraint],
             Constraint::FileName(_) => return vec![constraint],
+            Constraint::PrecedenceFileName(_) => return vec![constraint],
             Constraint::FileDesc(_) => file_desc.push(constraint),
             Constraint::Format(_) => return vec![constraint],
             Constraint::Invalid(_) => return Vec::new(),

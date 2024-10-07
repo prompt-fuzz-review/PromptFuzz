@@ -580,6 +580,11 @@ impl FuncGadget {
         output
     }
 
+    pub fn get_raw_arg_types(&self) -> Vec<String> {
+        let output = self.arg_types.clone();
+        output
+    }
+
     pub fn gen_raw_type_signature(&self) -> String {
         let ret_type = &self.ret_type;
         let name = &self.name;
