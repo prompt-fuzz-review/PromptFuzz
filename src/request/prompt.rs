@@ -134,12 +134,11 @@ impl Prompt {
             PromptKind::Generate(combination) => {
                 let ctx = get_combination_definitions(combination);
                 let sys_msg = get_sys_gen_message(ctx);
-                log::trace!("System role: {sys_msg}");
                 let user_msg = config::get_user_chat_template()
                     .replace("{combinations}", &combination_to_str(combination));
 
-                log::debug!("System role: {sys_msg}");
-                log::debug!("User role: {user_msg}");
+                log::debug!("System role: \n{sys_msg}");
+                log::debug!("User role: \n{user_msg}");
                 let sys_msg = ChatCompletionRequestMessageArgs::default()
                     .role(Role::System)
                     .content(sys_msg)
