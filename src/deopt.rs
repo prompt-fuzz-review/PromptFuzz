@@ -290,7 +290,7 @@ impl Deopt {
     }
 
     pub fn get_library_build_source_path(&self) -> Result<PathBuf> {
-        let lib_name = get_library_name();
+        let lib_name = get_library_name().to_lowercase();
         let path: PathBuf = [self.get_library_build_dir()?,"src".into(),lib_name.into()]
             .iter()
             .collect();
