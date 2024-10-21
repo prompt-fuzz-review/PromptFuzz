@@ -317,8 +317,16 @@ impl Deopt {
             if path.is_file() {
                 sources.push(path);
             } else if path.is_dir() {
-                let mut sub_sources = utils::read_all_files_in_dir(&path)?;
-                sources.append(&mut sub_sources);
+                if let Some(path_str) = path.file_name().unwrap().to_str() {
+                    if path_str.contains("src") || 
+                        path_str.contains("include") || 
+                        path_str.contains("lib") || 
+                        path_str.contains("lib64") || 
+                        path_str.contains("build") {
+                        let mut sub_sources = utils::read_all_files_in_dir(&path)?;
+                        sources.append(&mut sub_sources);
+                    }
+                }
             }
         }
         Ok(sources)
